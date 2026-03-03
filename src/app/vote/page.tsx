@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Step = "select" | "auth" | "otp" | "vote" | "confirm";
@@ -16,7 +17,8 @@ interface Candidate {
   name: string;
 }
 
-export default function VotePage() {
+function VotePageContent() {
+  const searchParams = useSearchParams();
   const [elections, setElections] = useState<Election[]>([]);
   const [selectedElection, setSelectedElection] = useState<Election | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -35,9 +37,17 @@ export default function VotePage() {
   useEffect(() => {
     fetch("/api/election/list")
       .then((r) => r.json())
-      .then((list) => setElections(list.filter((e: Election) => e.status === "open")))
+      .then((list) => {
+        const openList = list.filter((e: Election) => e.status === "open");
+        setElections(openList);
+        const idFromUrl = searchParams.get("electionId");
+        if (idFromUrl && openList.some((e: Election) => e.id === idFromUrl)) {
+          setSelectedElection(openList.find((e: Election) => e.id === idFromUrl));
+          setStep("auth");
+        }
+      })
       .catch(console.error);
-  }, []);
+  }, [searchParams]);
 
   async function requestOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -156,8 +166,10 @@ export default function VotePage() {
                 {elections.map((e) => (
                   <button
                     key={e.id}
+                    type="button"
                     onClick={() => selectElection(e)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-600 bg-slate-800/50 text-slate-200 hover:border-slate-500 hover:bg-slate-700/50 transition-colors text-left"
+                    className="w-full px-4 py-3 rounded-lg border border-slate-600 bg-slate-800/50 text-slate-200 hover:border-slate-500 hover:bg-slate-700/50 transition-colors text-left min-h-[44px]"
+                    aria-label={`Select election: ${e.name}`}
                   >
                     {e.name}
                   </button>
@@ -175,27 +187,31 @@ export default function VotePage() {
               </span>
             </div>
             <div>
-              <label className="block text-slate-400 text-sm mb-2">
+              <label htmlFor="flatNumber" className="block text-slate-400 text-sm mb-2">
                 Flat number
               </label>
             <input
               type="text"
+              id="flatNumber"
               value={flatNumber}
               onChange={(e) => setFlatNumber(e.target.value)}
               placeholder="e.g. 101"
-              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
+              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150 min-h-[44px]"
               required
+              aria-label="Flat number"
             />
             </div>
             <div>
-              <label className="block text-slate-400 text-sm mb-2">Email</label>
+              <label htmlFor="email" className="block text-slate-400 text-sm mb-2">Email</label>
               <input
                 type="email"
+                id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
+                className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150 min-h-[44px]"
                 required
+                aria-label="Email address"
               />
             </div>
             {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -216,11 +232,14 @@ export default function VotePage() {
             </p>
             <input
               type="text"
+              inputMode="numeric"
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="000000"
               maxLength={6}
-              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 text-center text-2xl tracking-widest font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
+              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 text-center text-2xl tracking-widest font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150 min-h-[44px]"
+              aria-label="6-digit verification code"
+              autoComplete="one-time-code"
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
@@ -244,11 +263,13 @@ export default function VotePage() {
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedCandidate(c)}
-                  className={`w-full px-4 py-3 rounded-lg border text-left transition-colors ${
+                  className={`w-full px-4 py-3 rounded-lg border text-left transition-colors min-h-[44px] ${
                     selectedCandidate?.id === c.id
                       ? "border-teal-500 bg-teal-900/30 text-teal-200"
                       : "border-slate-600 bg-slate-800/50 text-slate-200 hover:border-slate-500"
                   }`}
+                  aria-pressed={selectedCandidate?.id === c.id}
+                  aria-label={`Vote for ${c.name}`}
                 >
                   {c.name}
                 </button>
@@ -294,5 +315,17 @@ export default function VotePage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function VotePage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen p-6 sm:p-8 flex items-center justify-center">
+        <div className="text-slate-500">Loading...</div>
+      </main>
+    }>
+      <VotePageContent />
+    </Suspense>
   );
 }

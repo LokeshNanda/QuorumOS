@@ -7,6 +7,12 @@
 export interface NotificationProvider {
   sendOTP(email: string, otp: string): Promise<void>;
   sendElectionOpen?(email: string, electionName: string, voteUrl: string): Promise<void>;
+  sendElectionClosingReminder?(
+    email: string,
+    electionName: string,
+    voteUrl: string,
+    closesAt: Date
+  ): Promise<void>;
 }
 
 class ResendProvider implements NotificationProvider {
@@ -49,6 +55,30 @@ class ResendProvider implements NotificationProvider {
       html: `
         <p>The election <strong>${electionName}</strong> is now open for voting.</p>
         <p><a href="${voteUrl}">Cast your vote here</a></p>
+        <p>If you did not expect this email, please ignore it.</p>
+      `,
+    });
+    if (error) {
+      throw new Error(`Resend: ${error.message ?? JSON.stringify(error)}`);
+    }
+  }
+
+  async sendElectionClosingReminder(
+    email: string,
+    electionName: string,
+    voteUrl: string,
+    closesAt: Date
+  ): Promise<void> {
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const closesStr = closesAt.toLocaleString();
+    const { error } = await resend.emails.send({
+      from: this.fromEmail,
+      to: email,
+      subject: `Reminder: ${electionName} closes soon`,
+      html: `
+        <p>The election <strong>${electionName}</strong> will close at ${closesStr}.</p>
+        <p><a href="${voteUrl}">Cast your vote here</a> before it closes.</p>
         <p>If you did not expect this email, please ignore it.</p>
       `,
     });
@@ -99,6 +129,124 @@ class SendGridProvider implements NotificationProvider {
       `,
     });
   }
+
+  async sendElectionClosingReminder(
+    email: string,
+    electionName: string,
+    voteUrl: string,
+    closesAt: Date
+  ): Promise<void> {
+    const sgMail = (await import("@sendgrid/mail")).default;
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+    const closesStr = closesAt.toLocaleString();
+    await sgMail.send({
+      to: email,
+      from: this.fromEmail,
+      subject: `Reminder: ${electionName} closes soon`,
+      html: `
+        <p>The election <strong>${electionName}</strong> will close at ${closesStr}.</p>
+        <p><a href="${voteUrl}">Cast your vote here</a> before it closes.</p>
+        <p>If you did not expect this email, please ignore it.</p>
+      `,
+    });
+  }
+}
+
+class SmtpProvider implements NotificationProvider {
+  private fromEmail: string;
+  private createTransporter: () => Promise<import("nodemailer").Transporter>;
+
+  constructor() {
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT;
+    const from = process.env.SMTP_FROM_EMAIL;
+    if (!host || !port || !from) {
+      throw new Error("SMTP_HOST, SMTP_PORT, and SMTP_FROM_EMAIL must be set");
+    }
+    this.fromEmail = from;
+    this.createTransporter = async () => {
+      const nodemailer = await import("nodemailer");
+      return nodemailer.default.createTransport({
+      host,
+      port: parseInt(port, 10),
+      secure: port === "465",
+      auth:
+        process.env.SMTP_USER && process.env.SMTP_PASS
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
+      });
+    };
+  }
+
+  async sendOTP(email: string, otp: string): Promise<void> {
+    const transporter = await this.createTransporter();
+    await transporter.sendMail({
+      from: this.fromEmail,
+      to: email,
+      subject: "Your QuorumOS Voting Code",
+      html: `
+        <p>Your one-time verification code is: <strong>${otp}</strong></p>
+        <p>This code expires in 5 minutes. Do not share it with anyone.</p>
+        <p>If you did not request this code, please ignore this email.</p>
+      `,
+    });
+  }
+
+  async sendElectionOpen(email: string, electionName: string, voteUrl: string): Promise<void> {
+    const transporter = await this.createTransporter();
+    await transporter.sendMail({
+      from: this.fromEmail,
+      to: email,
+      subject: `Election Open: ${electionName}`,
+      html: `
+        <p>The election <strong>${electionName}</strong> is now open for voting.</p>
+        <p><a href="${voteUrl}">Cast your vote here</a></p>
+        <p>If you did not expect this email, please ignore it.</p>
+      `,
+    });
+  }
+
+  async sendElectionClosingReminder(
+    email: string,
+    electionName: string,
+    voteUrl: string,
+    closesAt: Date
+  ): Promise<void> {
+    const transporter = await this.createTransporter();
+    const closesStr = closesAt.toLocaleString();
+    await transporter.sendMail({
+      from: this.fromEmail,
+      to: email,
+      subject: `Reminder: ${electionName} closes soon`,
+      html: `
+        <p>The election <strong>${electionName}</strong> will close at ${closesStr}.</p>
+        <p><a href="${voteUrl}">Cast your vote here</a> before it closes.</p>
+        <p>If you did not expect this email, please ignore it.</p>
+      `,
+    });
+  }
+}
+
+class TestFileProvider implements NotificationProvider {
+  private filePath: string;
+
+  constructor() {
+    const path = process.env.TEST_OTP_FILE;
+    if (!path) throw new Error("TEST_OTP_FILE must be set for test provider");
+    this.filePath = path;
+  }
+
+  async sendOTP(email: string, otp: string): Promise<void> {
+    const fs = await import("fs/promises");
+    await fs.writeFile(
+      this.filePath,
+      JSON.stringify({ email, otp, at: new Date().toISOString() }),
+      "utf8"
+    );
+  }
+
+  async sendElectionOpen(): Promise<void> {}
+  async sendElectionClosingReminder(): Promise<void> {}
 }
 
 class ConsoleProvider implements NotificationProvider {
@@ -108,6 +256,17 @@ class ConsoleProvider implements NotificationProvider {
 
   async sendElectionOpen(email: string, electionName: string, voteUrl: string): Promise<void> {
     console.log(`[Election Open] To: ${email} | ${electionName} | ${voteUrl}`);
+  }
+
+  async sendElectionClosingReminder(
+    email: string,
+    electionName: string,
+    voteUrl: string,
+    closesAt: Date
+  ): Promise<void> {
+    console.log(
+      `[Election Closing Reminder] To: ${email} | ${electionName} | closes ${closesAt.toISOString()} | ${voteUrl}`
+    );
   }
 }
 
@@ -120,6 +279,10 @@ export function getNotificationProvider(): NotificationProvider {
       _provider = new ResendProvider();
     } else if (type === "sendgrid") {
       _provider = new SendGridProvider();
+    } else if (type === "smtp") {
+      _provider = new SmtpProvider();
+    } else if (type === "test-file" && process.env.TEST_OTP_FILE) {
+      _provider = new TestFileProvider();
     } else {
       _provider = new ConsoleProvider();
     }

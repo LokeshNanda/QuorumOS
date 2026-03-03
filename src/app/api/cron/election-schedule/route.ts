@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeMerkleRoot } from "@/lib/crypto";
 import { sendElectionOpenNotifications } from "@/lib/notify-election-open";
+import { sendElectionClosingReminders } from "@/lib/notify-election-closing";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -19,6 +20,8 @@ export async function GET(req: Request) {
   const now = new Date();
   const opened: string[] = [];
   const closed: string[] = [];
+
+  const remindersSent = await sendElectionClosingReminders();
 
   const toOpen = await prisma.election.findMany({
     where: {
@@ -75,6 +78,7 @@ export async function GET(req: Request) {
     success: true,
     opened,
     closed,
+    remindersSent,
     processedAt: now.toISOString(),
   });
 }

@@ -11,6 +11,17 @@ const listSchema = z.object({
   electionId: z.string().cuid(),
 });
 
+const updateSchema = z.object({
+  electionId: z.string().cuid(),
+  candidateId: z.string().cuid(),
+  name: z.string().min(1).max(200),
+});
+
+const deleteSchema = z.object({
+  electionId: z.string().cuid(),
+  candidateId: z.string().cuid(),
+});
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -64,6 +75,93 @@ export async function GET(req: Request) {
   } catch {
     return NextResponse.json(
       { error: "Failed to list candidates" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { electionId, candidateId, name } = updateSchema.parse(body);
+
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+    });
+    if (!election || election.status !== "draft") {
+      return NextResponse.json(
+        { error: "Election not found or not in draft" },
+        { status: 400 }
+      );
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { id: candidateId, electionId },
+    });
+    if (!candidate) {
+      return NextResponse.json(
+        { error: "Candidate not found" },
+        { status: 404 }
+      );
+    }
+
+    const updated = await prisma.candidate.update({
+      where: { id: candidateId },
+      data: { name: name.trim() },
+    });
+    return NextResponse.json(updated);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid input", details: e.issues },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Failed to update candidate" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json();
+    const { electionId, candidateId } = deleteSchema.parse(body);
+
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+    });
+    if (!election || election.status !== "draft") {
+      return NextResponse.json(
+        { error: "Election not found or not in draft" },
+        { status: 400 }
+      );
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { id: candidateId, electionId },
+    });
+    if (!candidate) {
+      return NextResponse.json(
+        { error: "Candidate not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.candidate.delete({
+      where: { id: candidateId },
+    });
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid input", details: e.issues },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Failed to remove candidate" },
       { status: 500 }
     );
   }

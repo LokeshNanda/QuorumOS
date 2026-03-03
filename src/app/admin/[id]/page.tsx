@@ -21,8 +21,10 @@ export default function AdminElectionPage() {
   const id = params.id as string;
   const [election, setElection] = useState<Election | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"voters" | "candidates" | "schedule" | null>(null);
+  const [action, setAction] = useState<"voters" | "manageVoters" | "candidates" | "schedule" | null>(null);
   const [voterCsv, setVoterCsv] = useState("");
+  const [replaceVoters, setReplaceVoters] = useState(false);
+  const [voters, setVoters] = useState<{ id: string; flatNumber: string }[]>([]);
   const [candidateName, setCandidateName] = useState("");
   const [opensAt, setOpensAt] = useState("");
   const [closesAt, setClosesAt] = useState("");
@@ -40,6 +42,12 @@ export default function AdminElectionPage() {
   useEffect(() => {
     fetchElection();
   }, [id]);
+
+  useEffect(() => {
+    if (election?.status !== "open") return;
+    const interval = setInterval(fetchElection, 30000);
+    return () => clearInterval(interval);
+  }, [election?.status, id]);
 
   useEffect(() => {
     if (election) {
@@ -65,7 +73,7 @@ export default function AdminElectionPage() {
       const res = await fetch("/api/election/upload-voters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ electionId: id, voters }),
+        body: JSON.stringify({ electionId: id, voters, replace: replaceVoters }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
@@ -160,6 +168,89 @@ export default function AdminElectionPage() {
     router.push(`/admin/${id}/audit`);
   }
 
+  function fetchVoters() {
+    fetch(`/api/election/voters?electionId=${id}`)
+      .then((r) => r.json())
+      .then(setVoters)
+      .catch(console.error);
+  }
+
+  useEffect(() => {
+    if (action === "manageVoters") fetchVoters();
+  }, [action, id]);
+
+  async function handleRemoveVoter(voterId: string) {
+    setError("");
+    try {
+      const res = await fetch("/api/election/voters", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ electionId: id, voterId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove");
+      setSuccess("Voter removed");
+      fetchVoters();
+      fetchElection();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function handleEditCandidate(candidateId: string, name: string) {
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/election/candidates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ electionId: id, candidateId, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update");
+      setSuccess("Candidate updated");
+      fetchElection();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function handleEditElectionName(name: string) {
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/election/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update");
+      setSuccess("Election name updated");
+      setElection((prev) => (prev ? { ...prev, name } : null));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function handleRemoveCandidate(candidateId: string) {
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/election/candidates", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ electionId: id, candidateId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove");
+      setSuccess("Candidate removed");
+      fetchElection();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
   if (loading || !election) {
     return (
       <main className="min-h-screen p-8">
@@ -177,7 +268,22 @@ export default function AdminElectionPage() {
         >
           ← Back to elections
         </a>
-        <h1 className="text-2xl font-semibold text-slate-100">{election.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-slate-100">{election.name}</h1>
+          {election.status === "draft" && (
+            <button
+              type="button"
+              onClick={() => {
+                const newName = prompt("Edit election name:", election.name);
+                if (newName?.trim()) handleEditElectionName(newName.trim());
+              }}
+              className="text-slate-400 hover:text-slate-200 text-sm"
+              aria-label="Edit election name"
+            >
+              Edit
+            </button>
+          )}
+        </div>
         <div className="mt-1 flex items-center gap-3">
           <p
             className={`text-sm font-medium ${
@@ -199,7 +305,7 @@ export default function AdminElectionPage() {
           )}
         </div>
 
-        <div className="mt-8 rounded-lg border border-slate-700 bg-slate-800/50 p-6 space-y-6">
+        <div className="mt-8 rounded-lg border border-slate-700 bg-slate-800/50 p-6 space-y-6 animate-fade-in">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-slate-500 text-sm">Eligible voters</p>
@@ -244,8 +350,20 @@ export default function AdminElectionPage() {
                     onChange={(e) => setVoterCsv(e.target.value)}
                     rows={6}
                     placeholder="101,resident@example.com&#10;102,other@example.com"
-                    className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 text-slate-100 font-mono text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 text-slate-100 font-mono text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 min-h-[44px]"
+                    aria-label="Voter CSV: flat_number,email per line"
                   />
+                  {election._count.voters > 0 && (
+                    <label className="flex items-center gap-2 text-slate-400 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={replaceVoters}
+                        onChange={(e) => setReplaceVoters(e.target.checked)}
+                        className="rounded border-slate-600"
+                      />
+                      Replace existing voter list
+                    </label>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="submit"
@@ -262,6 +380,39 @@ export default function AdminElectionPage() {
                     </button>
                   </div>
                 </form>
+              ) : action === "manageVoters" ? (
+                <div className="space-y-3">
+                  <p className="text-slate-400 text-sm">
+                    Remove individual voters (draft only). To replace the entire list, use Upload voters with &quot;Replace existing&quot; checked.
+                  </p>
+                  <ul className="space-y-2 max-h-48 overflow-y-auto">
+                    {voters.map((v) => (
+                      <li
+                        key={v.id}
+                        className="flex justify-between items-center py-2 border-b border-slate-700 last:border-0"
+                      >
+                        <span className="text-slate-300 font-mono">Flat {v.flatNumber}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVoter(v.id)}
+                          className="px-2 py-1 rounded text-red-400 hover:bg-red-900/30 text-sm"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {voters.length === 0 && (
+                    <p className="text-slate-500 text-sm">No voters yet. Upload a CSV to add voters.</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAction(null)}
+                    className="px-4 py-2 rounded-lg border border-slate-600 text-slate-400 hover:bg-slate-700"
+                  >
+                    Done
+                  </button>
+                </div>
               ) : action === "candidates" ? (
                 <form onSubmit={handleAddCandidate} className="space-y-3">
                   <input
@@ -327,12 +478,18 @@ export default function AdminElectionPage() {
                   </div>
                 </form>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setAction("voters")}
                     className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
                   >
                     Upload voters
+                  </button>
+                  <button
+                    onClick={() => setAction("manageVoters")}
+                    className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
+                  >
+                    Manage voters
                   </button>
                   <button
                     onClick={() => setAction("candidates")}
@@ -354,10 +511,29 @@ export default function AdminElectionPage() {
                 {election.candidates.length === 0 ? (
                   <p className="text-slate-600 text-sm">None added yet</p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     {election.candidates.map((c) => (
-                      <li key={c.id} className="text-slate-300">
-                        {c.name}
+                      <li key={c.id} className="flex items-center justify-between gap-2">
+                        <span className="text-slate-300">{c.name}</span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newName = prompt("Edit candidate name:", c.name);
+                              if (newName?.trim()) handleEditCandidate(c.id, newName.trim());
+                            }}
+                            className="px-2 py-1 rounded text-slate-400 hover:bg-slate-700 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCandidate(c.id)}
+                            className="px-2 py-1 rounded text-red-400 hover:bg-red-900/30 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

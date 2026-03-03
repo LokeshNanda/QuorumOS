@@ -43,16 +43,18 @@ export default function NewElectionPage() {
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-slate-400 text-sm mb-2">
+            <label htmlFor="electionName" className="block text-slate-400 text-sm mb-2">
               Election name
             </label>
             <input
+              id="electionName"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Society AGM 2025"
               className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
               required
+              aria-label="Election name"
             />
           </div>
           {error && (

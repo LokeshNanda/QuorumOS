@@ -16,18 +16,23 @@ function isAdminPage(pathname: string): boolean {
 }
 
 function isAdminApi(pathname: string, method: string): boolean {
+  if (pathname.startsWith("/api/election/voters")) {
+    return method === "GET" || method === "DELETE";
+  }
   if (method !== "POST") return false;
   return ADMIN_API_PATHS.some((p) => pathname.startsWith(p));
 }
 
 function isProtectedApi(pathname: string, method: string): boolean {
-  if (pathname.startsWith("/api/election/") && method === "GET") {
+  if (pathname.startsWith("/api/election/")) {
     const idMatch = pathname.match(/^\/api\/election\/([^/]+)$/);
     if (idMatch && idMatch[1] !== "list" && idMatch[1] !== "candidates" && idMatch[1] !== "audit") {
-      return true;
+      if (method === "GET") return true;
+      if (method === "PATCH") return true;
     }
   }
-  if (pathname.startsWith("/api/election/candidates") && method === "POST") return true;
+  if (pathname.startsWith("/api/election/candidates") && ["POST", "PATCH", "DELETE"].includes(method))
+    return true;
   return false;
 }
 
@@ -85,5 +90,6 @@ export const config = {
     "/api/election/schedule",
     "/api/election/:id",
     "/api/election/candidates",
+    "/api/election/voters",
   ],
 };

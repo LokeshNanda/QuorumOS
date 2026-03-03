@@ -84,7 +84,8 @@ export default function AdminPage() {
               <Link
                 key={e.id}
                 href={`/admin/${e.id}`}
-                className="block rounded-lg border border-slate-700 bg-slate-800/50 p-6 hover:border-slate-600 transition-colors"
+                className="block rounded-lg border border-slate-700 bg-slate-800/50 p-6 hover:border-slate-600 transition-colors animate-fade-in"
+                aria-label={`View election: ${e.name} (${e.status})`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -102,9 +103,15 @@ export default function AdminPage() {
                             ? "bg-blue-900/50 text-blue-300"
                             : "bg-green-900/50 text-green-300"
                       }`}
+                      aria-hidden
                     >
                       {e.status}
                     </span>
+                    {e.status === "closed" && e.merkleRoot && (
+                      <span className="text-cyan-400/80 text-xs" title="Merkle root present">
+                        ✓ Integrity
+                      </span>
+                    )}
                     <span className="text-slate-400 text-sm">
                       {e._count.votes} votes
                     </span>

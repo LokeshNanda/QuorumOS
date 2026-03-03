@@ -19,6 +19,7 @@ model Election {
   opensAt      DateTime? // Optional: auto-open at this time
   closesAt     DateTime? // Optional: auto-close at this time
   closedAt     DateTime?
+  closingReminderSentAt DateTime? // When 24h reminder was sent
   createdAt    DateTime  @default(now())
 
   voters              Voter[]

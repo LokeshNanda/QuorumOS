@@ -10,7 +10,7 @@ Privacy-first digital election infrastructure for housing societies. Email OTP a
 - **Merkle root** – Generated on election close for integrity verification
 - **Audit report** – JSON export with full transparency
 - **Rate limiting** – OTP brute-force protection (Upstash Redis)
-- **Pluggable notifications** – Resend, SendGrid, or console (dev)
+- **Pluggable notifications** – Resend, SendGrid, SMTP, or console (dev)
 
 ## Tech Stack
 
@@ -78,7 +78,27 @@ Privacy-first digital election infrastructure for housing societies. Email OTP a
    SENDGRID_FROM_EMAIL=elections@yourdomain.com
    ```
 
+   SMTP (generic):
+   ```
+   NOTIFICATION_PROVIDER=smtp
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USER=user
+   SMTP_PASS=password
+   SMTP_FROM_EMAIL=elections@yourdomain.com
+   ```
+
    Without these, OTPs are logged to console.
+
+5a. **Optional: Cron (election scheduling)**
+
+   For scheduled open/close, the cron endpoint `/api/cron/election-schedule` must be called regularly (e.g. every minute). When `CRON_SECRET` is set, the endpoint requires `Authorization: Bearer <CRON_SECRET>`.
+
+   **Vercel Cron:** Add `CRON_SECRET` to your Vercel project environment variables. Vercel automatically sends it in the `Authorization` header when invoking cron jobs. The `vercel.json` cron runs every minute.
+
+   **External cron:** Use a service (e.g. cron-job.org, Upstash QStash) that can send custom headers. Configure it to call your cron URL with `Authorization: Bearer <your-cron-secret>`.
+
+   Without `CRON_SECRET`, the cron endpoint is unprotected (dev only).
 
 6. **Run**
 
@@ -114,8 +134,12 @@ Privacy-first digital election infrastructure for housing societies. Email OTP a
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/election/create` | POST | Create election |
-| `/api/election/upload-voters` | POST | Upload voter CSV |
-| `/api/election/candidates` | POST/GET | Add/list candidates |
+| `/api/election/[id]` | GET | Get election |
+| `/api/election/[id]` | PATCH | Update election name (draft only) |
+| `/api/election/upload-voters` | POST | Upload voter CSV (body.replace: replace list) |
+| `/api/election/voters` | GET | List voters (draft only) |
+| `/api/election/voters` | DELETE | Remove voter (draft only) |
+| `/api/election/candidates` | POST/GET/PATCH/DELETE | Add/list/edit/remove candidates |
 | `/api/election/open` | POST | Open election |
 | `/api/election/close` | POST | Close + Merkle root |
 | `/api/election/schedule` | POST | Set opensAt/closesAt |
@@ -142,6 +166,11 @@ Admin routes (`/admin`, `/admin/new`, etc.) are protected when `ADMIN_PASSWORD` 
 - Tokens stored as hash, one-time use
 - Vote ledger: hash chain, no voter linkage
 - Rate limiting on OTP requests
+
+## Testing
+
+- **Unit tests:** `npm test`
+- **E2E tests:** `npm run test:e2e` (requires Playwright, runs dev server)
 
 ## Documentation
 

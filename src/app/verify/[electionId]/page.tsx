@@ -130,7 +130,7 @@ export default function PublicVerifyPage() {
           Generated {new Date(audit.generatedAt).toLocaleString()}
         </p>
 
-        <div className="mt-8 rounded-lg border border-slate-700 bg-slate-800/50 p-6 space-y-6">
+        <div className="mt-8 rounded-lg border border-slate-700 bg-slate-800/50 p-6 space-y-6 animate-fade-in">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-slate-500 text-sm">Eligible voters</p>
@@ -213,7 +213,8 @@ export default function PublicVerifyPage() {
                   value={voteHash}
                   onChange={(e) => setVoteHash(e.target.value)}
                   placeholder="64-character hex hash (e.g. a1b2c3...)"
-                  className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 min-h-[44px]"
+                  aria-label="Vote hash for verification"
                 />
                 <button
                   type="submit"

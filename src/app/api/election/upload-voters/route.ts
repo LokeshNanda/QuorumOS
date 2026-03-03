@@ -5,6 +5,7 @@ import { hashEmail } from "@/lib/crypto";
 
 const schema = z.object({
   electionId: z.string().cuid(),
+  replace: z.boolean().optional().default(false),
   voters: z.array(
     z.object({
       flat_number: z.string(),
@@ -16,7 +17,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { electionId, voters } = schema.parse(body);
+    const { electionId, voters, replace } = schema.parse(body);
 
     const election = await prisma.election.findUnique({
       where: { id: electionId },
@@ -26,6 +27,13 @@ export async function POST(req: Request) {
         { error: "Election not found or not in draft" },
         { status: 400 }
       );
+    }
+
+    if (replace) {
+      await prisma.$transaction([
+        prisma.voter.deleteMany({ where: { electionId } }),
+        prisma.electionNotification.deleteMany({ where: { electionId } }),
+      ]);
     }
 
     const toCreate = voters.map((v) => ({

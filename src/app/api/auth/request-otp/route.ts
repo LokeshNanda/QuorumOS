@@ -56,6 +56,12 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    if (voter.tokenIssued) {
+      return NextResponse.json(
+        { error: "You have already received a voting token. Use it to cast your vote." },
+        { status: 400 }
+      );
+    }
 
     const ip = getClientIp(req);
     const [emailLimit, ipLimit] = await Promise.all([

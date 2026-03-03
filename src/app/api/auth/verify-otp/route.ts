@@ -5,6 +5,7 @@ import { hashEmail, hashToken, randomHex } from "@/lib/crypto";
 import { verifyOtpHash, MAX_ATTEMPTS } from "@/lib/otp";
 
 const schema = z.object({
+  flat_number: z.string().min(1),
   email: z.string().email(),
   otp: z.string().length(6).regex(/^\d+$/),
   electionId: z.string().cuid(),
@@ -13,7 +14,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, otp, electionId } = schema.parse(body);
+    const { flat_number, email, otp, electionId } = schema.parse(body);
 
     const election = await prisma.election.findUnique({
       where: { id: electionId },
@@ -62,18 +63,45 @@ export async function POST(req: Request) {
       );
     }
 
+    const voter = await prisma.voter.findFirst({
+      where: {
+        electionId,
+        flatNumber: String(flat_number).trim(),
+        emailHash,
+      },
+    });
+    if (!voter) {
+      return NextResponse.json(
+        { error: "Voter not found" },
+        { status: 400 }
+      );
+    }
+    if (voter.tokenIssued) {
+      return NextResponse.json(
+        { error: "You have already received a voting token. Use it to cast your vote, or you have already voted." },
+        { status: 400 }
+      );
+    }
+
     const rawToken = randomHex(32);
     const tokenHash = hashToken(rawToken);
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await prisma.votingToken.create({
-      data: {
-        electionId,
-        tokenHash,
-        expiresAt,
-      },
-    });
+    await prisma.$transaction([
+      prisma.votingToken.create({
+        data: {
+          electionId,
+          voterId: voter.id,
+          tokenHash,
+          expiresAt,
+        },
+      }),
+      prisma.voter.update({
+        where: { id: voter.id },
+        data: { tokenIssued: true },
+      }),
+    ]);
 
     return NextResponse.json({
       voting_token: rawToken,

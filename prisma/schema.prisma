@@ -27,13 +27,15 @@ model Election {
 }
 
 model Voter {
-  id         String   @id @default(cuid())
-  electionId String
-  flatNumber String
-  emailHash  String   // SHA-256(email + election_salt)
-  hasVoted   Boolean  @default(false)
+  id          String   @id @default(cuid())
+  electionId  String
+  flatNumber  String
+  emailHash   String   // SHA-256(email + election_salt)
+  hasVoted    Boolean  @default(false)
+  tokenIssued Boolean  @default(false) // One token per voter
 
-  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  election     Election     @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votingTokens VotingToken[]
 
   @@unique([electionId, flatNumber, emailHash])
   @@index([electionId, emailHash])
@@ -57,12 +59,14 @@ model OtpSession {
 model VotingToken {
   id        String    @id @default(cuid())
   electionId String
+  voterId   String?   // Links token to voter for hasVoted update (vote stays anonymous)
   tokenHash String
   used      Boolean   @default(false)
   expiresAt DateTime
   createdAt DateTime  @default(now())
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  voter    Voter?   @relation(fields: [voterId], references: [id], onDelete: Cascade)
 
   @@unique([electionId, tokenHash])
   @@index([electionId])

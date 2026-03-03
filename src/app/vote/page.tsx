@@ -70,6 +70,7 @@ export default function VotePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          flat_number: flatNumber,
           email,
           otp,
           electionId: selectedElection?.id,

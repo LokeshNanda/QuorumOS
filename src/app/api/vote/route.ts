@@ -81,6 +81,14 @@ export async function POST(req: Request) {
         where: { id: votingToken.id },
         data: { used: true },
       }),
+      ...(votingToken.voterId
+        ? [
+            prisma.voter.update({
+              where: { id: votingToken.voterId },
+              data: { hasVoted: true },
+            }),
+          ]
+        : []),
     ]);
 
     return NextResponse.json({

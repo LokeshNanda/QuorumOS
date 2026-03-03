@@ -39,6 +39,14 @@ export async function POST(req: Request) {
       skipDuplicates: true,
     });
 
+    await prisma.electionNotification.createMany({
+      data: voters.map((v) => ({
+        electionId,
+        email: v.email.trim().toLowerCase(),
+      })),
+      skipDuplicates: true,
+    });
+
     const count = await prisma.voter.count({ where: { electionId } });
     return NextResponse.json({ success: true, totalVoters: count });
   } catch (e) {

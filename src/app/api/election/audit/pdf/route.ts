@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { renderToBuffer } from "@react-pdf/renderer";
+import React from "react";
+import { AuditPdfDocument } from "@/lib/audit-pdf";
 
 const schema = z.object({
   electionId: z.string().cuid(),
@@ -47,11 +50,6 @@ export async function GET(req: Request) {
     const lastVote = election.votes[election.votes.length - 1];
     const finalLedgerHash = lastVote?.currentHash ?? null;
 
-    const voteHashes =
-      election.status === "closed"
-        ? election.votes.map((v) => v.currentHash)
-        : undefined;
-
     const audit = {
       electionId: election.id,
       name: election.name,
@@ -65,14 +63,23 @@ export async function GET(req: Request) {
       totalVotesCast: election.votes.length,
       candidateTally,
       finalLedgerHash,
-      voteHashes,
       generatedAt: new Date().toISOString(),
     };
 
-    return NextResponse.json(audit);
-  } catch {
+    const pdfBuffer = await renderToBuffer(
+      React.createElement(AuditPdfDocument, { audit }) as Parameters<typeof renderToBuffer>[0]
+    );
+
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="quorumos-audit-${electionId}-${Date.now()}.pdf"`,
+      },
+    });
+  } catch (err) {
+    console.error("PDF generation failed:", err);
     return NextResponse.json(
-      { error: "Failed to generate audit" },
+      { error: "Failed to generate PDF" },
       { status: 500 }
     );
   }

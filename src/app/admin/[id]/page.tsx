@@ -8,6 +8,8 @@ interface Election {
   name: string;
   status: string;
   merkleRoot: string | null;
+  opensAt: string | null;
+  closesAt: string | null;
   closedAt: string | null;
   candidates: { id: string; name: string }[];
   _count: { voters: number; votes: number };
@@ -19,9 +21,11 @@ export default function AdminElectionPage() {
   const id = params.id as string;
   const [election, setElection] = useState<Election | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"voters" | "candidates" | null>(null);
+  const [action, setAction] = useState<"voters" | "candidates" | "schedule" | null>(null);
   const [voterCsv, setVoterCsv] = useState("");
   const [candidateName, setCandidateName] = useState("");
+  const [opensAt, setOpensAt] = useState("");
+  const [closesAt, setClosesAt] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -36,6 +40,13 @@ export default function AdminElectionPage() {
   useEffect(() => {
     fetchElection();
   }, [id]);
+
+  useEffect(() => {
+    if (election) {
+      setOpensAt(election.opensAt ? election.opensAt.slice(0, 16) : "");
+      setClosesAt(election.closesAt ? election.closesAt.slice(0, 16) : "");
+    }
+  }, [election]);
 
   async function handleUploadVoters(e: React.FormEvent) {
     e.preventDefault();
@@ -105,6 +116,30 @@ export default function AdminElectionPage() {
     }
   }
 
+  async function handleSaveSchedule(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/election/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          electionId: id,
+          opensAt: opensAt || null,
+          closesAt: closesAt || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setSuccess("Schedule updated");
+      setAction(null);
+      fetchElection();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
   async function handleClose() {
     setError("");
     try {
@@ -143,17 +178,26 @@ export default function AdminElectionPage() {
           ← Back to elections
         </a>
         <h1 className="text-2xl font-semibold text-slate-100">{election.name}</h1>
-        <p
-          className={`mt-1 text-sm font-medium ${
-            election.status === "draft"
-              ? "text-slate-400"
-              : election.status === "open"
-                ? "text-blue-400"
-                : "text-green-400"
-          }`}
-        >
-          {election.status.toUpperCase()}
-        </p>
+        <div className="mt-1 flex items-center gap-3">
+          <p
+            className={`text-sm font-medium ${
+              election.status === "draft"
+                ? "text-slate-400"
+                : election.status === "open"
+                  ? "text-blue-400"
+                  : "text-green-400"
+            }`}
+          >
+            {election.status.toUpperCase()}
+          </p>
+          {(election.opensAt || election.closesAt) && (
+            <span className="text-slate-500 text-xs">
+              {election.opensAt && `Opens ${new Date(election.opensAt).toLocaleString()}`}
+              {election.opensAt && election.closesAt && " • "}
+              {election.closesAt && `Closes ${new Date(election.closesAt).toLocaleString()}`}
+            </span>
+          )}
+        </div>
 
         <div className="mt-8 rounded-lg border border-slate-700 bg-slate-800/50 p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -243,6 +287,45 @@ export default function AdminElectionPage() {
                     </button>
                   </div>
                 </form>
+              ) : action === "schedule" ? (
+                <form onSubmit={handleSaveSchedule} className="space-y-3">
+                  <p className="text-slate-400 text-sm">
+                    Set optional times for auto-open and auto-close. Requires a cron job to call /api/cron/election-schedule.
+                  </p>
+                  <div>
+                    <label className="block text-slate-400 text-sm mb-1">Open at (local)</label>
+                    <input
+                      type="datetime-local"
+                      value={opensAt}
+                      onChange={(e) => setOpensAt(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 text-sm mb-1">Close at (local)</label>
+                    <input
+                      type="datetime-local"
+                      value={closesAt}
+                      onChange={(e) => setClosesAt(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500"
+                    >
+                      Save schedule
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAction(null)}
+                      className="px-4 py-2 rounded-lg border border-slate-600 text-slate-400 hover:bg-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               ) : (
                 <div className="flex gap-2">
                   <button
@@ -256,6 +339,12 @@ export default function AdminElectionPage() {
                     className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
                   >
                     Add candidate
+                  </button>
+                  <button
+                    onClick={() => setAction("schedule")}
+                    className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
+                  >
+                    Schedule
                   </button>
                 </div>
               )}

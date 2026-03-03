@@ -25,20 +25,24 @@ interface Audit {
   generatedAt: string;
 }
 
-export default function AuditPage() {
+export default function PublicVerifyPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params.electionId as string;
   const [audit, setAudit] = useState<Audit | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [voteHash, setVoteHash] = useState("");
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
   const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     fetch(`/api/election/audit?electionId=${id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Election not found");
+        return r.json();
+      })
       .then(setAudit)
-      .catch(console.error)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -75,10 +79,34 @@ export default function AuditPage() {
     URL.revokeObjectURL(url);
   }
 
-  if (loading || !audit) {
+  if (loading) {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-2xl mx-auto text-slate-500">Loading audit...</div>
+      </main>
+    );
+  }
+
+  if (error || !audit) {
+    return (
+      <main className="min-h-screen p-8">
+        <div className="max-w-2xl mx-auto">
+          <Link
+            href="/verify"
+            className="text-slate-400 hover:text-slate-200 text-sm mb-6 inline-block"
+          >
+            ← Back to verify
+          </Link>
+          <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-8 text-center">
+            <p className="text-red-400 mb-4">{error || "Election not found"}</p>
+            <Link
+              href="/verify"
+              className="text-cyan-400 hover:text-cyan-300 text-sm"
+            >
+              Try another election ID
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -87,11 +115,14 @@ export default function AuditPage() {
     <main className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
         <Link
-          href={`/admin/${id}`}
+          href="/verify"
           className="text-slate-400 hover:text-slate-200 text-sm mb-6 inline-block"
         >
-          ← Back to election
+          ← Back to verify
         </Link>
+        <div className="mb-2 px-3 py-1 rounded bg-cyan-900/30 text-cyan-300 text-xs font-medium inline-block">
+          Public audit – no login required
+        </div>
         <h1 className="text-2xl font-semibold text-slate-100">
           Audit Report – {audit.name}
         </h1>
@@ -154,7 +185,7 @@ export default function AuditPage() {
             </ul>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={downloadJson}
               className="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-500"

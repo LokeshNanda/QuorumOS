@@ -62,12 +62,20 @@ Privacy-first digital election infrastructure for housing societies. Email OTP a
 
 5. **Optional: Email (Resend)**
 
-   For production OTP emails:
+   For production OTP emails, use Resend or SendGrid:
 
+   Resend:
    ```
    NOTIFICATION_PROVIDER=resend
    RESEND_API_KEY=re_xxx
    RESEND_FROM_EMAIL=elections@yourdomain.com
+   ```
+
+   SendGrid:
+   ```
+   NOTIFICATION_PROVIDER=sendgrid
+   SENDGRID_API_KEY=SG.xxx
+   SENDGRID_FROM_EMAIL=elections@yourdomain.com
    ```
 
    Without these, OTPs are logged to console.
@@ -110,10 +118,22 @@ Privacy-first digital election infrastructure for housing societies. Email OTP a
 | `/api/election/candidates` | POST/GET | Add/list candidates |
 | `/api/election/open` | POST | Open election |
 | `/api/election/close` | POST | Close + Merkle root |
+| `/api/election/schedule` | POST | Set opensAt/closesAt |
 | `/api/election/audit` | GET | Audit JSON |
+| `/api/election/audit/pdf` | GET | Audit PDF |
+| `/api/election/verify-vote` | GET | Verify vote hash in Merkle tree |
+| `/api/cron/election-schedule` | GET | Process scheduled open/close |
 | `/api/auth/request-otp` | POST | Request OTP |
 | `/api/auth/verify-otp` | POST | Verify OTP, get token |
 | `/api/vote` | POST | Cast vote with token |
+
+## Admin Authentication
+
+Admin routes (`/admin`, `/admin/new`, etc.) are protected when `ADMIN_PASSWORD` is set in `.env`. Without it, admin routes are open (dev mode).
+
+1. Set `ADMIN_PASSWORD` and `SESSION_SECRET` in `.env`
+2. Visit `/admin` – you'll be redirected to `/admin/login`
+3. Enter the admin password to access the Election Control Center
 
 ## Security
 

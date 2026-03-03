@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Step = "select" | "auth" | "otp" | "vote" | "confirm";
 
@@ -29,6 +30,7 @@ export default function VotePage() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [receipt, setReceipt] = useState("");
 
   useEffect(() => {
     fetch("/api/election/list")
@@ -109,6 +111,7 @@ export default function VotePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to cast vote");
+      setReceipt(data.receipt || "");
       setStep("confirm");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -124,11 +127,20 @@ export default function VotePage() {
   }
 
   return (
-    <main className="min-h-screen p-8 flex items-center justify-center">
-      <div className="max-w-md w-full">
-        <h1 className="text-2xl font-semibold text-slate-100 text-center mb-8">
+    <main className="min-h-screen p-6 sm:p-8 flex items-center justify-center">
+      <div className="max-w-md w-full animate-fade-in">
+        <Link
+          href="/"
+          className="text-slate-400 hover:text-slate-200 text-sm mb-6 inline-block transition-colors duration-150"
+        >
+          ← Back to home
+        </Link>
+        <h1 className="text-2xl font-semibold text-slate-100 text-center mb-2">
           Cast Your Vote
         </h1>
+        <p className="text-slate-500 text-sm text-center mb-8">
+          Tamper-evident • Anonymous • Email OTP verified
+        </p>
 
         {step === "select" && (
           <div className="space-y-4">
@@ -156,22 +168,24 @@ export default function VotePage() {
         )}
 
         {step === "auth" && selectedElection && (
-          <form onSubmit={requestOtp} className="space-y-4">
-            <p className="text-slate-400 text-sm text-center">
-              Verify via Email OTP
-            </p>
+          <form onSubmit={requestOtp} className="space-y-4 panel p-6">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="px-2 py-0.5 rounded bg-slate-700/80 text-slate-300 text-xs font-medium">
+                Verified via Email OTP
+              </span>
+            </div>
             <div>
               <label className="block text-slate-400 text-sm mb-2">
                 Flat number
               </label>
-              <input
-                type="text"
-                value={flatNumber}
-                onChange={(e) => setFlatNumber(e.target.value)}
-                placeholder="e.g. 101"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                required
-              />
+            <input
+              type="text"
+              value={flatNumber}
+              onChange={(e) => setFlatNumber(e.target.value)}
+              placeholder="e.g. 101"
+              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
+              required
+            />
             </div>
             <div>
               <label className="block text-slate-400 text-sm mb-2">Email</label>
@@ -180,7 +194,7 @@ export default function VotePage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
                 required
               />
             </div>
@@ -188,7 +202,7 @@ export default function VotePage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+              className="w-full py-3 rounded-lg bg-teal-600 text-white hover:bg-teal-500 disabled:opacity-50 transition-colors duration-150 min-h-[44px]"
             >
               {loading ? "Sending..." : "Send OTP"}
             </button>
@@ -196,7 +210,7 @@ export default function VotePage() {
         )}
 
         {step === "otp" && (
-          <form onSubmit={verifyOtp} className="space-y-4">
+          <form onSubmit={verifyOtp} className="space-y-4 panel p-6">
             <p className="text-slate-400 text-sm text-center">
               Enter the 6-digit code sent to your email
             </p>
@@ -206,13 +220,13 @@ export default function VotePage() {
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="000000"
               maxLength={6}
-              className="w-full px-4 py-3 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 text-center text-2xl tracking-widest font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="w-full px-4 py-3 rounded-lg bg-slate-900/80 border border-slate-600 text-slate-100 text-center text-2xl tracking-widest font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors duration-150"
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full py-3 rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+              className="w-full py-3 rounded-lg bg-teal-600 text-white hover:bg-teal-500 disabled:opacity-50 transition-colors duration-150 min-h-[44px]"
             >
               {loading ? "Verifying..." : "Verify"}
             </button>
@@ -220,7 +234,7 @@ export default function VotePage() {
         )}
 
         {step === "vote" && (
-          <form onSubmit={castVote} className="space-y-4">
+          <form onSubmit={castVote} className="space-y-4 panel p-6">
             <p className="text-slate-400 text-sm text-center">
               Select your choice (one-time, anonymous)
             </p>
@@ -232,7 +246,7 @@ export default function VotePage() {
                   onClick={() => setSelectedCandidate(c)}
                   className={`w-full px-4 py-3 rounded-lg border text-left transition-colors ${
                     selectedCandidate?.id === c.id
-                      ? "border-cyan-500 bg-cyan-900/30 text-cyan-200"
+                      ? "border-teal-500 bg-teal-900/30 text-teal-200"
                       : "border-slate-600 bg-slate-800/50 text-slate-200 hover:border-slate-500"
                   }`}
                 >
@@ -244,7 +258,7 @@ export default function VotePage() {
             <button
               type="submit"
               disabled={loading || !selectedCandidate}
-              className="w-full py-3 rounded-lg bg-green-600 text-white hover:bg-green-500 disabled:opacity-50"
+              className="w-full py-3 rounded-lg bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 transition-colors duration-150 min-h-[44px]"
             >
               {loading ? "Recording..." : "Submit vote"}
             </button>
@@ -252,14 +266,30 @@ export default function VotePage() {
         )}
 
         {step === "confirm" && (
-          <div className="rounded-lg border border-green-800 bg-green-900/20 p-8 text-center">
-            <p className="text-green-400 font-medium">Vote recorded</p>
-            <p className="text-slate-400 text-sm mt-2">
+          <div className="panel border-green-800/50 bg-green-900/20 p-8 text-center animate-fade-in">
+            <p className="text-green-400 font-medium text-lg">Vote recorded</p>
+            <p className="text-slate-300 text-sm mt-2">
               Your vote has been recorded in the tamper-evident ledger.
             </p>
-            <p className="text-slate-500 text-xs mt-4">
-              Verified via Email OTP • Identity-vote separation
-            </p>
+            {receipt && (
+              <div className="mt-4 p-3 rounded-lg bg-slate-900/80 text-left">
+                <p className="text-slate-500 text-xs mb-1">Your vote receipt (save for verification)</p>
+                <code className="text-teal-400 font-mono text-xs break-all block select-all">
+                  {receipt}
+                </code>
+                <p className="text-slate-500 text-xs mt-2">
+                  Use the <Link href="/verify" className="text-teal-400 hover:underline">Verify Results</Link> page to confirm this hash is in the ledger after the election closes.
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap justify-center gap-2 mt-4">
+              <span className="px-2 py-1 rounded bg-slate-700/50 text-slate-400 text-xs">
+                Verified via Email OTP
+              </span>
+              <span className="px-2 py-1 rounded bg-slate-700/50 text-slate-400 text-xs">
+                Vote Recorded in Tamper-Evident Ledger
+              </span>
+            </div>
           </div>
         )}
       </div>

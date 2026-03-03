@@ -2,6 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+function LogoutButton() {
+  const router = useRouter();
+  async function handleLogout() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    router.push("/admin/login");
+    router.refresh();
+  }
+  return (
+    <button
+      onClick={handleLogout}
+      className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+    >
+      Sign out
+    </button>
+  );
+}
 
 interface Election {
   id: string;
@@ -43,12 +61,15 @@ export default function AdminPage() {
               Create and manage elections
             </p>
           </div>
-          <Link
-            href="/admin/new"
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-          >
-            New Election
-          </Link>
+          <div className="flex gap-3">
+            <LogoutButton />
+            <Link
+              href="/admin/new"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            >
+              New Election
+            </Link>
+          </div>
         </div>
 
         {loading ? (

@@ -11,19 +11,35 @@ datasource db {
 }
 
 model Election {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  status       String   @default("draft") // draft | open | closed
-  salt         String   // Per-election salt for hashing
-  merkleRoot   String?  // Generated on close
+  status       String    @default("draft") // draft | open | closed
+  salt         String    // Per-election salt for hashing
+  merkleRoot   String?   // Generated on close
+  opensAt      DateTime? // Optional: auto-open at this time
+  closesAt     DateTime? // Optional: auto-close at this time
   closedAt     DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
-  voters       Voter[]
-  otpSessions  OtpSession[]
-  votingTokens VotingToken[]
-  votes        Vote[]
-  candidates   Candidate[]
+  voters              Voter[]
+  otpSessions         OtpSession[]
+  votingTokens        VotingToken[]
+  votes               Vote[]
+  candidates          Candidate[]
+  electionNotifications ElectionNotification[]
+}
+
+model ElectionNotification {
+  id         String    @id @default(cuid())
+  electionId String
+  email      String
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, email])
+  @@index([electionId])
 }
 
 model Voter {

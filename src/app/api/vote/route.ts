@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: "Vote recorded in tamper-evident ledger",
-      voteId: currentHash.slice(0, 16) + "...",
+      receipt: currentHash,
     });
   } catch (e) {
     if (e instanceof z.ZodError) {

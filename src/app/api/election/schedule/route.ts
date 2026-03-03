@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { sendElectionOpenNotifications } from "@/lib/notify-election-open";
 
 const schema = z.object({
   electionId: z.string().cuid(),
+  opensAt: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v ? new Date(v) : null)),
+  closesAt: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v ? new Date(v) : null)),
 });
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { electionId } = schema.parse(body);
+    const { electionId, opensAt, closesAt } = schema.parse(body);
 
     const election = await prisma.election.findUnique({
       where: { id: electionId },
-      include: { candidates: true },
     });
     if (!election || election.status !== "draft") {
       return NextResponse.json(
@@ -22,25 +30,17 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    if (election.candidates.length === 0) {
-      return NextResponse.json(
-        { error: "Add at least one candidate before opening" },
-        { status: 400 }
-      );
-    }
+
+    const data: { opensAt?: Date | null; closesAt?: Date | null } = {};
+    if (opensAt !== undefined) data.opensAt = opensAt;
+    if (closesAt !== undefined) data.closesAt = closesAt;
 
     await prisma.election.update({
       where: { id: electionId },
-      data: { status: "open" },
+      data,
     });
 
-    const notified = await sendElectionOpenNotifications(electionId);
-
-    return NextResponse.json({
-      success: true,
-      status: "open",
-      notificationsSent: notified,
-    });
+    return NextResponse.json({ success: true });
   } catch (e) {
     if (e instanceof z.ZodError) {
       return NextResponse.json(
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Failed to open election" },
+      { error: "Failed to update schedule" },
       { status: 500 }
     );
   }

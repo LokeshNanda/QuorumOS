@@ -13,15 +13,21 @@ export default function HomePage() {
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
             href="/admin"
-            className="px-6 py-3 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 hover:border-slate-500 transition-colors duration-150"
+            className="px-6 py-3 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 hover:border-slate-500 transition-colors duration-150 min-h-[44px]"
           >
             Admin Dashboard
           </Link>
           <Link
             href="/vote"
-            className="px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors duration-150"
+            className="px-6 py-3 rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors duration-150 min-h-[44px]"
           >
             Cast Vote
+          </Link>
+          <Link
+            href="/verify"
+            className="px-6 py-3 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 hover:border-slate-500 transition-colors duration-150 min-h-[44px]"
+          >
+            Verify Results
           </Link>
         </div>
         <p className="text-slate-500 text-sm">

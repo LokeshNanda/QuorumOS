@@ -79,3 +79,58 @@ export function computeMerkleRoot(hashes: string[]): string {
   }
   return computeMerkleRoot(layer);
 }
+
+export interface MerkleProofStep {
+  hash: string;
+  position: "left" | "right";
+}
+
+/**
+ * Generate Merkle proof for a leaf at the given index
+ * Returns sibling hashes and positions to verify the leaf is in the tree
+ */
+export function computeMerkleProof(hashes: string[], leafIndex: number): MerkleProofStep[] {
+  if (hashes.length === 0 || leafIndex < 0 || leafIndex >= hashes.length) {
+    return [];
+  }
+  const proof: MerkleProofStep[] = [];
+  let layer = [...hashes];
+  let idx = leafIndex;
+
+  while (layer.length > 1) {
+    const siblingIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
+    if (siblingIdx < layer.length) {
+      proof.push({
+        hash: layer[siblingIdx],
+        position: idx % 2 === 0 ? "right" : "left",
+      });
+    }
+    idx = Math.floor(idx / 2);
+    const nextLayer: string[] = [];
+    for (let i = 0; i < layer.length; i += 2) {
+      const left = layer[i];
+      const right = i + 1 < layer.length ? layer[i + 1] : left;
+      nextLayer.push(sha256(left + right));
+    }
+    layer = nextLayer;
+  }
+  return proof;
+}
+
+/**
+ * Verify a leaf is in the Merkle tree using the proof and root
+ */
+export function verifyMerkleProof(
+  leaf: string,
+  proof: MerkleProofStep[],
+  root: string
+): boolean {
+  let current = leaf;
+  for (const step of proof) {
+    current =
+      step.position === "left"
+        ? sha256(step.hash + current)
+        : sha256(current + step.hash);
+  }
+  return current === root;
+}

@@ -5,12 +5,20 @@ import { randomHex } from "@/lib/crypto";
 
 const schema = z.object({
   name: z.string().min(1).max(200),
+  opensAt: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() ? new Date(v) : null)),
+  closesAt: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() ? new Date(v) : null)),
 });
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name } = schema.parse(body);
+    const { name, opensAt, closesAt } = schema.parse(body);
 
     const salt = randomHex(16);
     const election = await prisma.election.create({
@@ -18,6 +26,8 @@ export async function POST(req: Request) {
         name,
         salt,
         status: "draft",
+        opensAt: opensAt ? new Date(opensAt) : null,
+        closesAt: closesAt ? new Date(closesAt) : null,
       },
     });
 

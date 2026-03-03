@@ -1,0 +1,94 @@
+// QuorumOS - Privacy-first digital election system
+// Database schema per docs/04-database-schema.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Election {
+  id           String   @id @default(cuid())
+  name         String
+  status       String   @default("draft") // draft | open | closed
+  salt         String   // Per-election salt for hashing
+  merkleRoot   String?  // Generated on close
+  closedAt     DateTime?
+  createdAt    DateTime @default(now())
+
+  voters       Voter[]
+  otpSessions  OtpSession[]
+  votingTokens VotingToken[]
+  votes        Vote[]
+  candidates   Candidate[]
+}
+
+model Voter {
+  id         String   @id @default(cuid())
+  electionId String
+  flatNumber String
+  emailHash  String   // SHA-256(email + election_salt)
+  hasVoted   Boolean  @default(false)
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, flatNumber, emailHash])
+  @@index([electionId, emailHash])
+}
+
+model OtpSession {
+  id         String   @id @default(cuid())
+  electionId String
+  emailHash  String
+  otpHash    String   // SHA-256(otp + session_salt)
+  sessionSalt String
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@index([electionId, emailHash])
+}
+
+model VotingToken {
+  id        String    @id @default(cuid())
+  electionId String
+  tokenHash String
+  used      Boolean   @default(false)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, tokenHash])
+  @@index([electionId])
+}
+
+model Vote {
+  id          String   @id @default(cuid())
+  electionId  String
+  candidateId String
+  previousHash String  // Hash of previous vote in chain
+  currentHash  String  // SHA256(candidate_id + timestamp + previous_hash)
+  createdAt   DateTime @default(now())
+
+  election  Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([electionId])
+}
+
+model Candidate {
+  id         String  @id @default(cuid())
+  electionId String
+  name       String
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes     Vote[]
+
+  @@index([electionId])
+}
